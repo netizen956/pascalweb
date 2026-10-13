@@ -1,0 +1,1657 @@
+<title>PascalABC Web</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen IDE. Header, tabs on phones (Код / Консоль), two panes side by side on wide screens. */
+:root {
+  --bg: #e9edf4;
+  --panel: #ffffff;
+  --ink: #17202f;
+  --muted: #586478;
+  --line: #cdd5e2;
+  --accent: #1d5fd0;
+  --accent-ink: #ffffff;
+  --run: #17803d;
+  --stop: #c5291f;
+  --con-bg: #0d1424;
+  --con-fg: #dbe4f5;
+  --con-dim: #7f8ca6;
+  --con-err: #ff8f86;
+  --con-ok: #7fd9a4;
+  --hl-k: #7b3fb9;
+  --hl-t: #0d6ea6;
+  --hl-s: #0b7a52;
+  --hl-c: #7a8699;
+  --hl-n: #b05200;
+  --gutter: #8a95a8;
+  --sel: #bcd3ff;
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0f1a; --panel: #121a2b; --ink: #e5ebf7; --muted: #92a0ba; --line: #26324a;
+    --accent: #6ba3ff; --accent-ink: #0a1630; --run: #3fbf72; --stop: #ff7b70;
+    --con-bg: #05080f; --con-fg: #dbe4f5; --con-dim: #6f7c96; --con-err: #ff8f86; --con-ok: #7fd9a4;
+    --hl-k: #c59bff; --hl-t: #6cc4f0; --hl-s: #82d9ac; --hl-c: #6f7c96; --hl-n: #f2a65e;
+    --gutter: #5d6a84; --sel: #2a4a85; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0f1a; --panel: #121a2b; --ink: #e5ebf7; --muted: #92a0ba; --line: #26324a;
+  --accent: #6ba3ff; --accent-ink: #0a1630; --run: #3fbf72; --stop: #ff7b70;
+  --con-bg: #05080f; --con-fg: #dbe4f5; --con-dim: #6f7c96; --con-err: #ff8f86; --con-ok: #7fd9a4;
+  --hl-k: #c59bff; --hl-t: #6cc4f0; --hl-s: #82d9ac; --hl-c: #6f7c96; --hl-n: #f2a65e;
+  --gutter: #5d6a84; --sel: #2a4a85; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px;
+  padding-inline: 16px; padding-block: 10px; display: flex; flex-direction: column; gap: 10px;
+  overflow: hidden;
+}
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none; }
+.brand { display: flex; align-items: baseline; gap: 6px; margin-right: auto; min-width: 0; }
+.brand b { font-weight: 600; font-size: 19px; letter-spacing: -0.01em; }
+.brand span { font-family: var(--font-code); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.ctl { height: 40px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); padding-inline: 10px; }
+select.ctl { max-width: 46vw; text-overflow: ellipsis; }
+.btn-run { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding-inline: 16px; border: 0; border-radius: 8px; background: var(--run); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .btn-run { color: #04210f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-run { color: #04210f; } }
+.btn-run.is-stop { background: var(--stop); color: #fff; }
+.btn-run svg { width: 14px; height: 14px; fill: currentColor; }
+.btn-help { width: 40px; padding: 0; font-weight: 600; }
+
+.tabs { display: none; flex: none; gap: 6px; }
+.tabs button { flex: 1; height: 38px; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; font-weight: 500; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; }
+.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.pane-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.pane-head button { border: 0; background: none; color: var(--accent); font-size: 12px; text-transform: none; letter-spacing: 0; padding: 4px 2px; }
+
+/* editor */
+.editor { position: relative; flex: 1; min-height: 0; display: flex; font-family: var(--font-code); font-size: 16px; line-height: 24px; }
+.gutter { flex: none; width: 3.2em; overflow: hidden; border-right: 1px solid var(--line); color: var(--gutter); text-align: right; user-select: none; }
+.gutter pre { margin: 0; padding: 10px 8px 10px 0; font: inherit; }
+.gutter .err { color: var(--con-err); font-weight: 600; }
+.codewrap { position: relative; flex: 1; min-width: 0; }
+.hl, #code { position: absolute; inset: 0; margin: 0; padding: 10px 12px 10px 10px; font: inherit; letter-spacing: 0; white-space: pre; tab-size: 2; border: 0; }
+.hl { overflow: hidden; pointer-events: none; color: var(--ink); }
+.hl div { will-change: transform; }
+#code { resize: none; overflow: auto; background: transparent; color: transparent; caret-color: var(--ink); outline: none; -webkit-text-fill-color: transparent; overscroll-behavior: contain; }
+#code::selection { background: var(--sel); -webkit-text-fill-color: transparent; }
+.k { color: var(--hl-k); font-weight: 600; }
+.t { color: var(--hl-t); }
+.s { color: var(--hl-s); }
+.c { color: var(--hl-c); font-style: italic; }
+.n { color: var(--hl-n); }
+
+.keybar { flex: none; display: flex; gap: 6px; padding: 6px 8px; overflow-x: auto; border-top: 1px solid var(--line); scrollbar-width: none; }
+.keybar button { flex: none; min-width: 40px; height: 36px; padding-inline: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); font-family: var(--font-code); font-size: 14px; }
+.keybar button:active { background: var(--line); }
+
+/* console */
+.console { flex: 1; min-height: 0; margin: 0; padding: 12px; overflow: auto; background: var(--con-bg); color: var(--con-fg); font-family: var(--font-code); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.console .dim { color: var(--con-dim); }
+.console .err { color: var(--con-err); }
+.console .ok { color: var(--con-ok); }
+.console .echo { color: #8fc1ff; }
+.inputrow { flex: none; display: flex; gap: 8px; padding: 8px; background: var(--con-bg); border-top: 1px solid #ffffff1a; }
+.inputrow input { flex: 1; min-width: 0; height: 42px; border-radius: 8px; border: 1px solid #ffffff2a; background: #ffffff10; color: var(--con-fg); padding-inline: 12px; font-family: var(--font-code); font-size: 16px; }
+.inputrow input:disabled { opacity: 0.45; }
+.inputrow button { height: 42px; padding-inline: 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.inputrow button:disabled { opacity: 0.4; }
+.waiting .inputrow input { border-color: var(--accent); box-shadow: 0 0 0 2px #1d5fd055; }
+
+dialog { max-width: min(560px, calc(100vw - 32px)); width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 18px 20px; }
+dialog::backdrop { background: #0008; }
+dialog h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+dialog p, dialog li { line-height: 1.5; font-size: 14.5px; color: var(--ink); }
+dialog ul { padding-left: 20px; margin: 6px 0; }
+dialog code { font-family: var(--font-code); font-size: 13px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+dialog .close { margin-top: 10px; height: 38px; padding-inline: 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+
+@media (max-width: 819px) {
+  .tabs { display: flex; }
+  main { grid-template-columns: minmax(0, 1fr); }
+  body[data-tab="code"] #pane-console { display: none; }
+  body[data-tab="console"] #pane-code { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn-run, .tabs button { transition: background 0.15s; } }
+</style>
+
+<header>
+  <div class="brand"><b>PascalABC</b><span>web</span></div>
+  <select id="examples" class="ctl" aria-label="Примеры программ"></select>
+  <button id="run" class="btn-run" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5v13l11-6.5z"/></svg><span>Запуск</span></button>
+  <button id="help" class="ctl btn-help" type="button" aria-label="Справка">?</button>
+</header>
+
+<div class="tabs" role="tablist">
+  <button id="tab-code" role="tab" aria-selected="true" type="button">Код</button>
+  <button id="tab-console" role="tab" aria-selected="false" type="button">Консоль</button>
+</div>
+
+<main>
+  <section class="pane" id="pane-code" aria-label="Редактор кода">
+    <div class="pane-head"><span>program.pas</span><button id="clear-code" type="button">Очистить</button></div>
+    <div class="editor">
+      <div class="gutter" id="gutter" aria-hidden="true"><div><pre id="nums">1</pre></div></div>
+      <div class="codewrap">
+        <pre class="hl" aria-hidden="true"><div id="hl"></div></pre>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" wrap="off" aria-label="Код программы"></textarea>
+      </div>
+    </div>
+    <div class="keybar" id="keybar"></div>
+  </section>
+
+  <section class="pane" id="pane-console" aria-label="Консоль">
+    <div class="pane-head"><span id="status">Консоль</span><button id="clear-out" type="button">Очистить</button></div>
+    <pre class="console" id="out" aria-live="polite"></pre>
+    <form class="inputrow" id="inform" autocomplete="off">
+      <input id="inline" type="text" inputmode="text" enterkeyhint="send" disabled placeholder="Ввод появится, когда программа его попросит" aria-label="Ввод для программы" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button id="send" type="submit" disabled>Ввод</button>
+    </form>
+  </section>
+</main>
+
+<dialog id="helpdlg">
+  <h2>Что поддерживается</h2>
+  <p>Это интерпретатор подмножества PascalABC.NET. Он работает прямо в браузере, ничего устанавливать не нужно.</p>
+  <ul>
+    <li>Типы: <code>integer</code>, <code>real</code>, <code>boolean</code>, <code>char</code>, <code>string</code>, массивы (в том числе динамические и двумерные), записи, перечисления</li>
+    <li>Операторы: <code>if</code>, <code>case</code>, <code>for</code>, <code>while</code>, <code>repeat</code>, <code>foreach</code>, <code>break</code>, <code>continue</code>, <code>exit</code></li>
+    <li>Процедуры и функции, <code>var</code>-параметры, рекурсия, вложенные подпрограммы</li>
+    <li>Ввод и вывод: <code>read</code>, <code>readln</code>, <code>write</code>, <code>writeln</code> с форматом <code>x:5:2</code>, <code>Print</code>, <code>Println</code>, <code>ReadInteger</code>, <code>ReadReal</code></li>
+    <li>Из PascalABC.NET: <code>var x := 5;</code>, <code>for var i := 1 to n do</code>, <code>+=</code>, <code>-=</code></li>
+    <li>Строки и математика: <code>length</code>, <code>copy</code>, <code>pos</code>, <code>delete</code>, <code>insert</code>, <code>sqrt</code>, <code>random</code>, <code>round</code> и другие</li>
+  </ul>
+  <p>Пока не поддерживаются: указатели, классы, файлы, <code>try</code>, графика, модули.</p>
+  <button class="close" id="helpclose" type="button">Закрыть</button>
+</dialog>
+
+<script id="engine-src" type="text/plain">// ===== PascalABC web: lexer + parser =====
+const KW = new Set(['program','uses','var','const','type','begin','end','if','then','else','while','do','repeat','until','for','to','downto','case','of','function','procedure','array','record','set','and','or','not','xor','div','mod','shl','shr','in','nil','forward','foreach','unit','interface','implementation','label','goto','with','try','except','finally','class','new']);
+const READ_NAMES = new Set(['read','readln','readinteger','readreal','readstring','readlninteger','readlnreal','readlnstring','readchar','readlnchar','readboolean','sleep']);
+
+function lex(src) {
+  const toks = [];
+  let i = 0, line = 1;
+  const n = src.length;
+  const err = (m) => { throw { line, msg: m }; };
+  const OPS2 = [':=', '<>', '<=', '>=', '..', '+=', '-=', '*=', '/=', '**'];
+  while (i < n) {
+    const c = src[i];
+    if (c === '\n') { line++; i++; continue; }
+    if (c === ' ' || c === '\t' || c === '\r' || c === ' ') { i++; continue; }
+    if (c === '{') {
+      const j = src.indexOf('}', i);
+      if (j < 0) err('Не закрыт комментарий {');
+      for (let k = i; k < j; k++) if (src[k] === '\n') line++;
+      i = j + 1; continue;
+    }
+    if (c === '(' && src[i + 1] === '*') {
+      const j = src.indexOf('*)', i + 2);
+      if (j < 0) err('Не закрыт комментарий (*');
+      for (let k = i; k < j; k++) if (src[k] === '\n') line++;
+      i = j + 2; continue;
+    }
+    if (c === '/' && src[i + 1] === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+    if (/[A-Za-z_Ѐ-ӿ]/.test(c)) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_Ѐ-ӿ]/.test(src[j])) j++;
+      toks.push({ t: 'id', v: src.slice(i, j).toLowerCase(), line });
+      i = j; continue;
+    }
+    if (/[0-9]/.test(c) || (c === '$' && /[0-9A-Fa-f]/.test(src[i + 1] || ''))) {
+      if (c === '$') {
+        let j = i + 1;
+        while (j < n && /[0-9A-Fa-f]/.test(src[j])) j++;
+        toks.push({ t: 'num', v: parseInt(src.slice(i + 1, j), 16), real: false, line });
+        i = j; continue;
+      }
+      let j = i;
+      while (j < n && /[0-9]/.test(src[j])) j++;
+      let real = false;
+      if (src[j] === '.' && /[0-9]/.test(src[j + 1] || '')) {
+        real = true; j++;
+        while (j < n && /[0-9]/.test(src[j])) j++;
+      }
+      if ((src[j] === 'e' || src[j] === 'E') && /[0-9+-]/.test(src[j + 1] || '')) {
+        let k = j + 1;
+        if (src[k] === '+' || src[k] === '-') k++;
+        if (/[0-9]/.test(src[k] || '')) {
+          real = true; j = k;
+          while (j < n && /[0-9]/.test(src[j])) j++;
+        }
+      }
+      toks.push({ t: 'num', v: Number(src.slice(i, j)), real, line });
+      i = j; continue;
+    }
+    if (c === "'" || c === '#') {
+      let s = '', any = false;
+      while (i < n && (src[i] === "'" || src[i] === '#')) {
+        if (src[i] === "'") {
+          i++;
+          for (;;) {
+            if (i >= n || src[i] === '\n') err('Не закрыта строка');
+            if (src[i] === "'") {
+              if (src[i + 1] === "'") { s += "'"; i += 2; continue; }
+              i++; break;
+            }
+            s += src[i++];
+          }
+          any = true;
+        } else {
+          i++;
+          let j = i;
+          while (j < n && /[0-9]/.test(src[j])) j++;
+          if (j === i) err('Ожидался код символа после #');
+          s += String.fromCharCode(parseInt(src.slice(i, j), 10));
+          i = j; any = true;
+        }
+      }
+      toks.push({ t: 'str', v: s, line });
+      continue;
+    }
+    const two = src.substr(i, 2);
+    if (OPS2.includes(two)) { toks.push({ t: 'op', v: two, line }); i += 2; continue; }
+    if ('+-*/=<>()[],;:.^@'.includes(c)) { toks.push({ t: 'op', v: c, line }); i++; continue; }
+    err("Недопустимый символ '" + c + "'");
+  }
+  toks.push({ t: 'eof', v: '', line });
+  return toks;
+}
+
+function parse(src) {
+  const T = lex(src);
+  let p = 0;
+  let cur = { calls: new Set(), reads: false };
+  const fail = (m, t) => { t = t || T[p]; throw { line: t.line, msg: m }; };
+  const found = () => {
+    const t = T[p];
+    return t.t === 'eof' ? ' (конец программы)' : " (найдено '" + (t.t === 'str' ? "'" + t.v + "'" : t.v) + "')";
+  };
+  const isOp = (v) => T[p].t === 'op' && T[p].v === v;
+  const isId = (v) => T[p].t === 'id' && T[p].v === v;
+  const acceptOp = (v) => (isOp(v) ? (p++, true) : false);
+  const acceptKw = (v) => (isId(v) ? (p++, true) : false);
+  const expectOp = (v) => { if (!isOp(v)) fail("Ожидалось '" + v + "'" + found()); return T[p++]; };
+  const expectKw = (v) => { if (!isId(v)) fail("Ожидалось '" + v + "'" + found()); return T[p++]; };
+  const ident = () => {
+    const t = T[p];
+    if (t.t !== 'id' || KW.has(t.v)) fail('Ожидался идентификатор' + found());
+    p++; return t.v;
+  };
+  const noteName = (name) => { cur.calls.add(name); if (READ_NAMES.has(name)) cur.reads = true; };
+
+  // ---------- types ----------
+  function parseType() {
+    const t = T[p];
+    if (isOp('(')) {
+      p++; const names = [ident()];
+      while (acceptOp(',')) names.push(ident());
+      expectOp(')');
+      return { k: 'enum', names };
+    }
+    if (isId('array')) {
+      p++;
+      let dims = null;
+      if (acceptOp('[')) {
+        dims = [];
+        do { const lo = parseAdd(); expectOp('..'); const hi = parseAdd(); dims.push({ lo, hi }); } while (acceptOp(','));
+        expectOp(']');
+      }
+      expectKw('of');
+      return { k: 'array', dims, elem: parseType() };
+    }
+    if (isId('record')) {
+      p++;
+      const fields = [];
+      while (!isId('end')) {
+        const names = [ident()];
+        while (acceptOp(',')) names.push(ident());
+        expectOp(':');
+        const ty = parseType();
+        fields.push({ names, type: ty });
+        if (!acceptOp(';')) break;
+      }
+      expectKw('end');
+      return { k: 'record', fields };
+    }
+    if (isId('string')) {
+      p++;
+      if (acceptOp('[')) { parseAdd(); expectOp(']'); }
+      return { k: 'named', name: 'string' };
+    }
+    if (isId('set')) { p++; expectKw('of'); parseType(); return { k: 'set' }; }
+    if (isOp('^')) fail('Указатели пока не поддерживаются');
+    if (t.t === 'id' && !KW.has(t.v) && !(T[p + 1].t === 'op' && T[p + 1].v === '..')) {
+      p++; return { k: 'named', name: t.v, line: t.line };
+    }
+    const lo = parseAdd(); expectOp('..'); const hi = parseAdd();
+    return { k: 'range', lo, hi };
+  }
+
+  // ---------- expressions ----------
+  function parseExpr() {
+    let l = parseAdd();
+    for (;;) {
+      const t = T[p];
+      if (t.t === 'op' && ['=', '<>', '<', '>', '<=', '>='].includes(t.v)) {
+        p++; l = { k: 'bin', op: t.v, l, r: parseAdd(), line: t.line };
+      } else if (t.t === 'id' && t.v === 'in') {
+        p++; l = { k: 'bin', op: 'in', l, r: parseAdd(), line: t.line };
+      } else return l;
+    }
+  }
+  function parseAdd() {
+    let l = parseMul();
+    for (;;) {
+      const t = T[p];
+      if ((t.t === 'op' && (t.v === '+' || t.v === '-')) || (t.t === 'id' && (t.v === 'or' || t.v === 'xor'))) {
+        p++; l = { k: 'bin', op: t.v, l, r: parseMul(), line: t.line };
+      } else return l;
+    }
+  }
+  function parseMul() {
+    let l = parseUnary();
+    for (;;) {
+      const t = T[p];
+      if ((t.t === 'op' && (t.v === '*' || t.v === '/' || t.v === '**')) ||
+          (t.t === 'id' && ['div', 'mod', 'and', 'shl', 'shr'].includes(t.v))) {
+        p++; l = { k: 'bin', op: t.v, l, r: parseUnary(), line: t.line };
+      } else return l;
+    }
+  }
+  function parseUnary() {
+    const t = T[p];
+    if (t.t === 'id' && t.v === 'not') { p++; return { k: 'un', op: 'not', e: parseUnary(), line: t.line }; }
+    if (t.t === 'op' && (t.v === '-' || t.v === '+')) { p++; return { k: 'un', op: t.v, e: parseUnary(), line: t.line }; }
+    return parsePrimary();
+  }
+  function parseArgs() {
+    const args = [];
+    if (isOp(')')) { p++; return args; }
+    do {
+      const e = parseExpr();
+      if (isOp(':')) {
+        p++; const w = parseExpr(); let d = null;
+        if (acceptOp(':')) d = parseExpr();
+        args.push({ k: 'fmt', e, w, d, line: e.line });
+      } else args.push(e);
+    } while (acceptOp(','));
+    expectOp(')');
+    return args;
+  }
+  function parsePrimary() {
+    const t = T[p];
+    let e;
+    if (t.t === 'num') { p++; e = { k: 'num', v: t.v, real: t.real, line: t.line }; }
+    else if (t.t === 'str') { p++; e = { k: 'str', v: t.v, line: t.line }; }
+    else if (isOp('(')) { p++; e = parseExpr(); expectOp(')'); e = { k: 'paren', e, line: t.line }; }
+    else if (isOp('[')) {
+      p++; const items = [];
+      if (!isOp(']')) {
+        do {
+          const a = parseExpr();
+          if (acceptOp('..')) items.push({ lo: a, hi: parseExpr() }); else items.push(a);
+        } while (acceptOp(','));
+      }
+      expectOp(']');
+      e = { k: 'set', items, line: t.line };
+    }
+    else if (t.t === 'id' && t.v === 'nil') { p++; e = { k: 'nil', line: t.line }; }
+    else if (t.t === 'id' && (t.v === 'true' || t.v === 'false')) { p++; e = { k: 'bool', v: t.v === 'true', line: t.line }; }
+    else if (t.t === 'id' && !KW.has(t.v)) {
+      p++; noteName(t.v);
+      if (isOp('(')) { p++; e = { k: 'call', name: t.v, args: parseArgs(), line: t.line }; }
+      else e = { k: 'id', name: t.v, line: t.line };
+    }
+    else fail('Ожидалось выражение' + found());
+    for (;;) {
+      if (isOp('[') && e.k !== 'set') {
+        p++; const idxs = [parseExpr()];
+        while (acceptOp(',')) idxs.push(parseExpr());
+        expectOp(']');
+        e = { k: 'idx', base: e, idxs, line: T[p - 1].line };
+      } else if (isOp('.') && T[p + 1].t === 'id') {
+        p++; const nm = T[p++].v;
+        if (isOp('(')) { p++; e = { k: 'mcall', base: e, name: nm, args: parseArgs(), line: T[p - 1].line }; }
+        else e = { k: 'field', base: e, name: nm, line: T[p - 1].line };
+      } else break;
+    }
+    return e;
+  }
+
+  // ---------- statements ----------
+  const STOP = new Set(['end', 'else', 'until', 'except', 'finally']);
+  function parseBlock() {
+    expectKw('begin');
+    const stmts = parseStmts();
+    expectKw('end');
+    return { k: 'block', stmts };
+  }
+  function parseStmts() {
+    const s = [];
+    for (;;) {
+      if (T[p].t === 'eof') fail("Ожидалось 'end'" + found());
+      const st = parseStmt();
+      if (st) s.push(st);
+      if (!acceptOp(';')) break;
+    }
+    return s;
+  }
+  function parseVarInline(line) {
+    const names = [ident()];
+    while (acceptOp(',')) names.push(ident());
+    let type = null, init = null;
+    if (acceptOp(':')) { type = parseType(); if (acceptOp(':=') || acceptOp('=')) init = parseExpr(); }
+    else { expectOp(':='); init = parseExpr(); }
+    return { k: 'vardecl', names, type, init, line };
+  }
+  function parseStmt() {
+    const t = T[p];
+    const line = t.line;
+    if (t.t === 'op' && t.v === ';') return { k: 'empty', line };
+    if (t.t === 'id' && STOP.has(t.v)) return { k: 'empty', line };
+    if (t.t === 'id') {
+      switch (t.v) {
+        case 'begin': { const b = parseBlock(); b.line = line; return b; }
+        case 'var': p++; return parseVarInline(line);
+        case 'if': {
+          p++; const cond = parseExpr(); expectKw('then');
+          const th = parseStmt(); let el = null;
+          if (acceptKw('else')) el = parseStmt();
+          return { k: 'if', cond, th, el, line };
+        }
+        case 'while': { p++; const cond = parseExpr(); expectKw('do'); return { k: 'while', cond, body: parseStmt(), line }; }
+        case 'repeat': {
+          p++; const body = parseStmts(); expectKw('until');
+          return { k: 'repeat', body, cond: parseExpr(), line };
+        }
+        case 'for': {
+          p++; let decl = false;
+          if (acceptKw('var')) decl = true;
+          const name = ident(); noteName(name);
+          if (acceptOp(':')) parseType();
+          if (isId('in')) { p++; const e = parseExpr(); expectKw('do'); return { k: 'foreach', name, decl, expr: e, body: parseStmt(), line }; }
+          expectOp(':=');
+          const from = parseExpr();
+          let down = false;
+          if (acceptKw('downto')) down = true; else expectKw('to');
+          const to = parseExpr(); expectKw('do');
+          return { k: 'for', name, decl, from, to, down, body: parseStmt(), line };
+        }
+        case 'foreach': {
+          p++; let decl = false;
+          if (acceptKw('var')) decl = true;
+          const name = ident(); noteName(name);
+          expectKw('in'); const e = parseExpr(); expectKw('do');
+          return { k: 'foreach', name, decl, expr: e, body: parseStmt(), line };
+        }
+        case 'case': {
+          p++; const expr = parseExpr(); expectKw('of');
+          const branches = []; let els = null;
+          while (!isId('end') && !isId('else')) {
+            const labels = [];
+            do {
+              const a = parseExpr();
+              if (acceptOp('..')) labels.push({ lo: a, hi: parseExpr() }); else labels.push(a);
+            } while (acceptOp(','));
+            expectOp(':');
+            branches.push({ labels, body: parseStmt() });
+            if (!acceptOp(';')) break;
+          }
+          if (acceptKw('else')) els = parseStmts();
+          expectKw('end');
+          return { k: 'case', expr, branches, els, line };
+        }
+        case 'break': case 'continue': p++; return { k: t.v, line };
+        case 'exit': p++; if (isOp('(')) { p++; expectOp(')'); } return { k: 'exit', line };
+        case 'try': case 'with': case 'goto': case 'label':
+          fail("Оператор '" + t.v + "' пока не поддерживается");
+      }
+      if (KW.has(t.v)) fail('Неожиданное слово' + found());
+    }
+    const d = parsePrimary();
+    if (T[p].t === 'op' && [':=', '+=', '-=', '*=', '/='].includes(T[p].v)) {
+      const op = T[p++].v;
+      if (d.k !== 'id' && d.k !== 'idx' && d.k !== 'field') fail('Слева от присваивания должна быть переменная', t);
+      return { k: 'assign', target: d, op, value: parseExpr(), line };
+    }
+    if (d.k === 'id') return { k: 'call', name: d.name, args: [], line, stmt: true };
+    if (d.k === 'call') return { k: 'call', name: d.name, args: d.args, line, stmt: true };
+    if (d.k === 'mcall') return { k: 'mcallst', e: d, line };
+    fail('Здесь ожидался оператор', t);
+  }
+
+  // ---------- declarations ----------
+  function parseRoutine() {
+    const kind = T[p++].v;
+    const line = T[p].line;
+    const name = ident();
+    const params = [];
+    if (acceptOp('(')) {
+      if (!isOp(')')) {
+        do {
+          let byref = false;
+          if (acceptKw('var')) byref = true; else if (acceptKw('const')) { /* by value */ } else if (isId('out')) { p++; byref = true; }
+          const names = [ident()];
+          while (acceptOp(',')) names.push(ident());
+          expectOp(':');
+          const type = parseType();
+          if (acceptOp('=')) parseExpr();
+          for (const nm of names) params.push({ name: nm, type, byref });
+        } while (acceptOp(';'));
+      }
+      expectOp(')');
+    }
+    let ret = null;
+    if (kind === 'function') { expectOp(':'); ret = parseType(); }
+    const node = { k: 'routine', kind, name, params, ret, line, decls: [], body: null, calls: null, reads: false, forward: false };
+    if (acceptOp(':=')) {
+      const saved = cur; cur = { calls: new Set(), reads: false };
+      const e = parseExpr(); expectOp(';');
+      node.body = { k: 'block', stmts: [{ k: 'assign', target: { k: 'id', name: 'result', line }, op: ':=', value: e, line }] };
+      node.calls = cur.calls; node.reads = cur.reads; cur = saved;
+      return node;
+    }
+    expectOp(';');
+    while (isId('overload') || isId('inline') || isId('virtual') || isId('override')) { p++; expectOp(';'); }
+    if (acceptKw('forward')) { expectOp(';'); node.forward = true; node.calls = new Set(); return node; }
+    const saved = cur; cur = { calls: new Set(), reads: false };
+    node.decls = parseDecls();
+    node.body = parseBlock();
+    expectOp(';');
+    node.calls = cur.calls; node.reads = cur.reads; cur = saved;
+    return node;
+  }
+  function parseVarDecl() {
+    const line = T[p].line;
+    const names = [ident()];
+    while (acceptOp(',')) names.push(ident());
+    let type = null, init = null;
+    if (acceptOp(':')) {
+      type = parseType();
+      if (acceptOp('=') || acceptOp(':=')) init = parseInit(type);
+    } else { expectOp(':='); init = parseExpr(); }
+    expectOp(';');
+    return { k: 'var', names, type, init, line };
+  }
+  function parseInit(type) {
+    if (type && type.k === 'array' && isOp('(')) return parseArrLit();
+    return parseExpr();
+  }
+  function parseArrLit() {
+    const line = T[p].line;
+    expectOp('(');
+    const items = [];
+    do { items.push(isOp('(') ? parseArrLit() : parseExpr()); } while (acceptOp(','));
+    expectOp(')');
+    return { k: 'arrlit', items, line };
+  }
+  function parseDecls() {
+    const decls = [];
+    for (;;) {
+      if (isId('var')) {
+        p++;
+        do { decls.push(parseVarDecl()); } while (T[p].t === 'id' && !KW.has(T[p].v));
+      } else if (isId('const')) {
+        p++;
+        do {
+          const line = T[p].line;
+          const name = ident(); let type = null;
+          if (acceptOp(':')) type = parseType();
+          if (!acceptOp('=') && !acceptOp(':=')) fail("Ожидалось '='" + found());
+          const value = parseInit(type);
+          expectOp(';');
+          decls.push({ k: 'const', name, type, value, line });
+        } while (T[p].t === 'id' && !KW.has(T[p].v));
+      } else if (isId('type')) {
+        p++;
+        do {
+          const line = T[p].line;
+          const name = ident(); expectOp('=');
+          const type = parseType(); expectOp(';');
+          decls.push({ k: 'type', name, type, line });
+        } while (T[p].t === 'id' && !KW.has(T[p].v));
+      } else if (isId('procedure') || isId('function')) {
+        decls.push(parseRoutine());
+      } else break;
+    }
+    return decls;
+  }
+
+  // ---------- program ----------
+  if (acceptKw('program')) { ident(); expectOp(';'); }
+  if (isId('uses')) { while (!isOp(';')) { if (T[p].t === 'eof') fail("Ожидалось ';'"); p++; } p++; }
+  const prog = { k: 'program', decls: null, body: null, calls: null, reads: false };
+  cur = { calls: new Set(), reads: false };
+  prog.decls = parseDecls();
+  prog.body = parseBlock();
+  if (!acceptOp('.')) { if (T[p].t !== 'eof') fail("Ожидалась '.' после end" + found()); }
+  prog.calls = cur.calls; prog.reads = cur.reads;
+  return prog;
+}
+// ===== PascalABC web: compiler (Pascal AST -> JavaScript source) =====
+const INT = { k: 'int' }, REAL = { k: 'real' }, BOOL = { k: 'bool' }, CHAR = { k: 'char' }, STR = { k: 'str' };
+const TYPE_NAMES = {
+  integer: INT, longint: INT, int64: INT, shortint: INT, smallint: INT, byte: INT, word: INT, cardinal: INT, uint64: INT, longword: INT, uint32: INT, int32: INT, bigint: INT, biginteger: INT, sbyte: INT, int16: INT, uint16: INT,
+  real: REAL, double: REAL, single: REAL, extended: REAL, float: REAL,
+  boolean: BOOL, char: CHAR, string: STR,
+};
+const isNumT = (t) => !!t && (t.k === 'int' || t.k === 'real');
+const isStrT = (t) => !!t && (t.k === 'str' || t.k === 'char');
+
+class Scope {
+  constructor(parent, fn) { this.m = new Map(); this.parent = parent; this.fn = fn || (parent && parent.fn) || null; }
+  look(n) { for (let s = this; s; s = s.parent) { const v = s.m.get(n); if (v) return v; } return null; }
+  def(n, sym) { this.m.set(n, sym); return sym; }
+}
+
+function compile(src) {
+  const prog = parse(src);
+  // ----- which routines must be async (call input directly or indirectly) -----
+  const routines = [];
+  (function walk(ds) { for (const d of ds) if (d.k === 'routine') { routines.push(d); walk(d.decls); } })(prog.decls);
+  const asyncN = new Set();
+  for (let ch = true; ch;) {
+    ch = false;
+    for (const r of routines) {
+      if (asyncN.has(r.name)) continue;
+      if (r.reads || [...r.calls].some((c) => asyncN.has(c))) { asyncN.add(r.name); ch = true; }
+    }
+  }
+  let uidn = 0;
+  const uid = (p) => '$' + p + (++uidn);
+  const err = (line, msg) => { throw { line, msg }; };
+
+  // ----- types -----
+  function resolveType(n, sc) {
+    switch (n.k) {
+      case 'named': {
+        const s = sc.look(n.name);
+        if (s && s.kind === 'type') return s.t;
+        if (TYPE_NAMES[n.name]) return TYPE_NAMES[n.name];
+        return err(n.line, "Неизвестный тип '" + n.name + "'");
+      }
+      case 'array': {
+        let t = resolveType(n.elem, sc);
+        if (!n.dims) return { k: 'arr', dyn: true, elem: t };
+        for (let i = n.dims.length - 1; i >= 0; i--) {
+          t = { k: 'arr', dyn: false, lo: ex(n.dims[i].lo, sc).c, hi: ex(n.dims[i].hi, sc).c, elem: t };
+        }
+        return t;
+      }
+      case 'record': {
+        const fields = [];
+        for (const f of n.fields) { const t = resolveType(f.type, sc); for (const nm of f.names) fields.push({ name: nm, t }); }
+        return { k: 'rec', fields };
+      }
+      case 'enum': {
+        n.names.forEach((nm, i) => sc.def(nm, { kind: 'const', js: String(i), t: INT }));
+        return INT;
+      }
+      case 'range': return INT;
+      case 'set': return { k: 'set' };
+    }
+    return err(0, 'Неподдерживаемый тип');
+  }
+  function defCode(t) {
+    if (!t) return '0';
+    switch (t.k) {
+      case 'int': case 'real': return '0';
+      case 'bool': return 'false';
+      case 'char': case 'str': return "''";
+      case 'arr': return t.dyn ? '$dyn([])' : '$mk(' + t.lo + ',' + t.hi + ',()=>' + defCode(t.elem) + ')';
+      case 'rec': return '({' + t.fields.map((f) => 'f_' + f.name + ':' + defCode(f.t)).join(',') + '})';
+      case 'set': return '[]';
+    }
+    return '0';
+  }
+  const needCopy = (t) => !t || t.k === 'rec' || (t.k === 'arr' && !t.dyn);
+
+  // ----- expressions -----
+  function ex(n, sc) {
+    switch (n.k) {
+      case 'num': return { c: String(n.v), t: n.real ? REAL : INT };
+      case 'str': return { c: JSON.stringify(n.v), t: n.v.length === 1 ? CHAR : STR };
+      case 'bool': return { c: n.v ? 'true' : 'false', t: BOOL };
+      case 'nil': return { c: 'null', t: null };
+      case 'paren': { const e = ex(n.e, sc); return { c: '(' + e.c + ')', t: e.t }; }
+      case 'fmt': return err(n.line, 'Формат :w допустим только в write/writeln');
+      case 'id': return exId(n, sc);
+      case 'call': return exCall(n, sc);
+      case 'idx': {
+        let cur = ex(n.base, sc);
+        for (const ix of n.idxs) {
+          const i = ex(ix, sc);
+          cur = { c: '$g(' + cur.c + ',' + i.c + ')', t: cur.t ? (cur.t.k === 'arr' ? cur.t.elem : (isStrT(cur.t) ? CHAR : null)) : null };
+        }
+        return cur;
+      }
+      case 'field': {
+        const b = ex(n.base, sc);
+        if (n.name === 'length' || n.name === 'count') return { c: '$len(' + b.c + ')', t: INT };
+        let t = null;
+        if (b.t && b.t.k === 'rec') {
+          const f = b.t.fields.find((x) => x.name === n.name);
+          if (!f) err(n.line, "У записи нет поля '" + n.name + "'");
+          t = f.t;
+        }
+        return { c: '(' + b.c + ').f_' + n.name, t };
+      }
+      case 'mcall': {
+        const b = ex(n.base, sc);
+        switch (n.name) {
+          case 'toupper': return { c: '(' + b.c + ').toUpperCase()', t: STR };
+          case 'tolower': return { c: '(' + b.c + ').toLowerCase()', t: STR };
+          case 'trim': return { c: '(' + b.c + ').trim()', t: STR };
+          case 'tostring': return { c: '$str(' + b.c + ')', t: STR };
+        }
+        return err(n.line, "Неизвестный метод '" + n.name + "'");
+      }
+      case 'set': {
+        const items = n.items.map((it) => (it.lo ? '{lo:' + ex(it.lo, sc).c + ',hi:' + ex(it.hi, sc).c + '}' : ex(it, sc).c));
+        if (n.items.some((it) => it.lo)) return { c: '[' + items.join(',') + ']', t: { k: 'set' } };
+        return { c: '$dyn([' + items.join(',') + '])', t: { k: 'arr', dyn: true, elem: n.items.length ? ex(n.items[0], sc).t : null } };
+      }
+      case 'un': {
+        const e = ex(n.e, sc);
+        if (n.op === '-') return { c: '(-' + e.c + ')', t: e.t };
+        if (n.op === '+') return e;
+        if (e.t && e.t.k === 'bool') return { c: '(!' + e.c + ')', t: BOOL };
+        if (e.t && e.t.k === 'int') return { c: '(~' + e.c + ')', t: INT };
+        return { c: '$not(' + e.c + ')', t: e.t };
+      }
+      case 'bin': return exBin(n, sc);
+    }
+    return err(n.line, 'Неподдерживаемое выражение');
+  }
+  function exBin(n, sc) {
+    const op = n.op;
+    if (op === 'in') {
+      const L = ex(n.l, sc);
+      if (n.r.k === 'set') {
+        const items = n.r.items.map((it) => (it.lo ? '{lo:' + ex(it.lo, sc).c + ',hi:' + ex(it.hi, sc).c + '}' : ex(it, sc).c));
+        return { c: '$in(' + L.c + ',[' + items.join(',') + '])', t: BOOL };
+      }
+      return { c: '$in(' + L.c + ',' + ex(n.r, sc).c + ')', t: BOOL };
+    }
+    const L = ex(n.l, sc), R = ex(n.r, sc);
+    const lc = L.c, rc = R.c;
+    switch (op) {
+      case '+': {
+        let t = null;
+        if (isStrT(L.t) || isStrT(R.t)) t = STR;
+        else if ((L.t && L.t.k === 'real') || (R.t && R.t.k === 'real')) t = REAL;
+        else if (L.t && R.t && L.t.k === 'int' && R.t.k === 'int') t = INT;
+        else if (L.t && L.t.k === 'arr') t = L.t;
+        if (L.t && L.t.k === 'arr' && R.t && R.t.k === 'arr') return { c: '$cat(' + lc + ',' + rc + ')', t };
+        return { c: '(' + lc + '+' + rc + ')', t };
+      }
+      case '-': case '*': {
+        const t = (L.t && L.t.k === 'real') || (R.t && R.t.k === 'real') ? REAL : (L.t && R.t && L.t.k === 'int' && R.t.k === 'int' ? INT : null);
+        return { c: '(' + lc + op + rc + ')', t };
+      }
+      case '/': return { c: '$dv(' + lc + ',' + rc + ')', t: REAL };
+      case '**': return { c: 'Math.pow(' + lc + ',' + rc + ')', t: REAL };
+      case 'div': return { c: '$idiv(' + lc + ',' + rc + ')', t: INT };
+      case 'mod': return { c: '$mod(' + lc + ',' + rc + ')', t: INT };
+      case 'shl': return { c: '(' + lc + '<<' + rc + ')', t: INT };
+      case 'shr': return { c: '(' + lc + '>>' + rc + ')', t: INT };
+      case '=': return { c: '(' + lc + '===' + rc + ')', t: BOOL };
+      case '<>': return { c: '(' + lc + '!==' + rc + ')', t: BOOL };
+      case '<': case '>': case '<=': case '>=': return { c: '(' + lc + op + rc + ')', t: BOOL };
+      case 'and': case 'or': case 'xor': {
+        const bits = isNumT(L.t) && isNumT(R.t);
+        if (op === 'and') return { c: '(' + lc + (bits ? '&' : '&&') + rc + ')', t: bits ? INT : BOOL };
+        if (op === 'or') return { c: '(' + lc + (bits ? '|' : '||') + rc + ')', t: bits ? INT : BOOL };
+        return bits ? { c: '(' + lc + '^' + rc + ')', t: INT } : { c: '(!!' + lc + '!==!!' + rc + ')', t: BOOL };
+      }
+    }
+    return err(n.line, 'Неизвестная операция ' + op);
+  }
+  function exId(n, sc) {
+    const name = n.name;
+    if (name === 'result' && sc.fn && sc.fn.isFunc) return { c: '$r', t: sc.fn.ret };
+    const s = sc.look(name);
+    if (s) {
+      if (s.kind === 'var' || s.kind === 'const') return { c: s.js, t: s.t };
+      if (s.kind === 'ref') return { c: s.js + '.v', t: s.t };
+      if (s.kind === 'func' || s.kind === 'proc') return exCall({ name, args: [], line: n.line }, sc);
+      return err(n.line, "'" + name + "' нельзя использовать как значение");
+    }
+    if (name === 'pi') return { c: 'Math.PI', t: REAL };
+    if (name === 'maxint' || name === 'maxlongint') return { c: '2147483647', t: INT };
+    if (name === 'minint') return { c: '(-2147483648)', t: INT };
+    if (name === 'maxdouble' || name === 'maxreal') return { c: 'Number.MAX_VALUE', t: REAL };
+    if (name === 'newline') return { c: '"\\n"', t: STR };
+    const b = builtinExpr(name, [], sc, n.line);
+    if (b) return b;
+    return err(n.line, "Неизвестное имя '" + name + "'");
+  }
+  function userCall(s, args, sc, line) {
+    if (args.length !== s.params.length) err(line, "Неверное число параметров при вызове '" + s.name + "' (нужно " + s.params.length + ')');
+    const parts = args.map((a, i) => {
+      const p = s.params[i];
+      if (p.byref) {
+        if (a.k === 'id') { const as = sc.look(a.name); if (as && as.kind === 'ref') return as.js; }
+        const lv = lvalue(a, sc);
+        return '$ref(()=>' + lv.get + ',($v)=>{' + lv.set('$v') + '})';
+      }
+      const e = ex(a, sc);
+      return needCopy(p.t) && needCopy(e.t) ? '$cp(' + e.c + ')' : e.c;
+    });
+    const call = s.js + '(' + parts.join(',') + ')';
+    return { c: s.async ? '(await ' + call + ')' : call, t: s.ret || null };
+  }
+  function exCall(n, sc) {
+    const s = sc.look(n.name);
+    if (s && (s.kind === 'func' || s.kind === 'proc')) return userCall(s, n.args, sc, n.line);
+    if (s && (s.kind === 'var' || s.kind === 'const') && n.args.length) return err(n.line, "'" + n.name + "' не является функцией");
+    const b = builtinExpr(n.name, n.args, sc, n.line);
+    if (b) return b;
+    return err(n.line, "Неизвестная функция '" + n.name + "'");
+  }
+  function builtinExpr(name, args, sc, line) {
+    const A = (i) => {
+      if (i >= args.length) err(line, "Не хватает параметров у '" + name + "'");
+      return ex(args[i], sc);
+    };
+    const N = (k) => { if (args.length !== k) err(line, "Неверное число параметров у '" + name + "'"); };
+    const m1 = (f, t) => { N(1); return { c: f + '(' + A(0).c + ')', t }; };
+    switch (name) {
+      case 'abs': { N(1); const a = A(0); return { c: 'Math.abs(' + a.c + ')', t: a.t }; }
+      case 'sqr': { N(1); const a = A(0); return { c: '$sqr(' + a.c + ')', t: a.t }; }
+      case 'sqrt': return m1('Math.sqrt', REAL);
+      case 'sin': return m1('Math.sin', REAL);
+      case 'cos': return m1('Math.cos', REAL);
+      case 'tan': return m1('Math.tan', REAL);
+      case 'arctan': case 'atan': return m1('Math.atan', REAL);
+      case 'arcsin': case 'asin': return m1('Math.asin', REAL);
+      case 'arccos': case 'acos': return m1('Math.acos', REAL);
+      case 'exp': return m1('Math.exp', REAL);
+      case 'ln': return m1('Math.log', REAL);
+      case 'log10': return m1('Math.log10', REAL);
+      case 'log2': return m1('Math.log2', REAL);
+      case 'power': N(2); return { c: 'Math.pow(' + A(0).c + ',' + A(1).c + ')', t: REAL };
+      case 'round': return m1('$round', INT);
+      case 'trunc': return m1('Math.trunc', INT);
+      case 'int': return m1('Math.trunc', REAL);
+      case 'floor': return m1('Math.floor', INT);
+      case 'ceil': case 'ceiling': return m1('Math.ceil', INT);
+      case 'frac': return m1('$frac', REAL);
+      case 'sign': return m1('Math.sign', INT);
+      case 'odd': return m1('$odd', BOOL);
+      case 'random':
+        if (args.length === 0) return { c: 'Math.random()', t: REAL };
+        if (args.length === 1) return { c: '$rnd(' + A(0).c + ')', t: INT };
+        return { c: '$rnd2(' + A(0).c + ',' + A(1).c + ')', t: INT };
+      case 'randomrange': N(2); return { c: '$rnd2(' + A(0).c + ',' + A(1).c + ')', t: INT };
+      case 'min': case 'max': {
+        if (args.length < 2) err(line, "Неверное число параметров у '" + name + "'");
+        const es = args.map((_, i) => A(i));
+        return { c: 'Math.' + name + '(' + es.map((e) => e.c).join(',') + ')', t: es.some((e) => e.t && e.t.k === 'real') ? REAL : INT };
+      }
+      case 'length': return m1('$len', INT);
+      case 'copy':
+        if (args.length === 2) return { c: '$sub(' + A(0).c + ',' + A(1).c + ',1e9)', t: STR };
+        N(3); return { c: '$sub(' + A(0).c + ',' + A(1).c + ',' + A(2).c + ')', t: STR };
+      case 'pos': N(2); return { c: '((' + A(1).c + ').indexOf(' + A(0).c + ')+1)', t: INT };
+      case 'upcase': return m1('$up', CHAR);
+      case 'uppercase': return { c: '(' + (N(1), A(0).c) + ').toUpperCase()', t: STR };
+      case 'lowercase': case 'lowcase': return { c: '(' + (N(1), A(0).c) + ').toLowerCase()', t: STR };
+      case 'chr': return m1('String.fromCharCode', CHAR);
+      case 'ord': return m1('$ord', INT);
+      case 'succ': return { c: '$succ(' + (N(1), A(0).c) + ',1)', t: INT };
+      case 'pred': return { c: '$succ(' + (N(1), A(0).c) + ',-1)', t: INT };
+      case 'concat': { const es = args.map((_, i) => A(i)); return { c: '(' + (es.map((e) => e.c).join('+') || "''") + ')', t: STR }; }
+      case 'trim': return { c: '(' + (N(1), A(0).c) + ').trim()', t: STR };
+      case 'trimleft': return { c: '(' + (N(1), A(0).c) + ').trimStart()', t: STR };
+      case 'trimright': return { c: '(' + (N(1), A(0).c) + ').trimEnd()', t: STR };
+      case 'inttostr': case 'floattostr': return m1('$str', STR);
+      case 'strtoint': return m1('$s2i', INT);
+      case 'strtofloat': return m1('$s2f', REAL);
+      case 'stringofchar': N(2); return { c: '(' + A(0).c + ').repeat(' + A(1).c + ')', t: STR };
+      case 'reversestring': return { c: '[...(' + (N(1), A(0).c) + ')].reverse().join("")', t: STR };
+      case 'high': return m1('$high', INT);
+      case 'low': return m1('$low', INT);
+      case 'integer': case 'longint': case 'int64': case 'byte': case 'word': return m1('$toint', INT);
+      case 'real': case 'double': case 'single': return m1('Number', REAL);
+      case 'char': return m1('String.fromCharCode', CHAR);
+      case 'string': return m1('$str', STR);
+      case 'boolean': return m1('Boolean', BOOL);
+      case 'readinteger': case 'readlninteger': return { c: '(await $rdIP(' + (args.length ? A(0).c : "''") + ',' + (name === 'readlninteger') + '))', t: INT };
+      case 'readreal': case 'readlnreal': return { c: '(await $rdRP(' + (args.length ? A(0).c : "''") + ',' + (name === 'readlnreal') + '))', t: REAL };
+      case 'readstring': case 'readlnstring': return { c: '(await $rdSP(' + (args.length ? A(0).c : "''") + '))', t: STR };
+      case 'readchar': case 'readlnchar': return { c: '(await $rdCP(' + (args.length ? A(0).c : "''") + '))', t: CHAR };
+      case 'readboolean': return { c: '(await $rdBP(' + (args.length ? A(0).c : "''") + '))', t: BOOL };
+    }
+    return null;
+  }
+
+  // ----- lvalues -----
+  function lvalue(n, sc) {
+    if (n.k === 'id') {
+      const name = n.name;
+      if (sc.fn && sc.fn.isFunc && (name === 'result' || name === sc.fn.name)) {
+        const s0 = sc.look(name);
+        if (name === 'result' || (s0 && s0.kind === 'func')) return { get: '$r', set: (v) => '$r = ' + v + ';', t: sc.fn.ret };
+      }
+      const s = sc.look(name);
+      if (!s) return err(n.line, "Неизвестное имя '" + name + "'");
+      if (s.kind === 'var' || s.kind === 'const') return { get: s.js, set: (v) => s.js + ' = ' + v + ';', t: s.t };
+      if (s.kind === 'ref') return { get: s.js + '.v', set: (v) => s.js + '.v = ' + v + ';', t: s.t };
+      return err(n.line, "Нельзя присвоить значение '" + name + "'");
+    }
+    if (n.k === 'idx') {
+      if (n.idxs.length > 1) {
+        const inner = { k: 'idx', base: n.base, idxs: n.idxs.slice(0, -1), line: n.line };
+        return lvalue({ k: 'idx', base: inner, idxs: [n.idxs[n.idxs.length - 1]], line: n.line }, sc);
+      }
+      const B = lvalue(n.base, sc);
+      const I = ex(n.idxs[0], sc).c;
+      const t = B.t ? (B.t.k === 'arr' ? B.t.elem : (isStrT(B.t) ? CHAR : null)) : null;
+      const get = '$g(' + B.get + ',' + I + ')';
+      if (B.t && B.t.k === 'arr') return { get, t, set: (v) => '$s(' + B.get + ',' + I + ',' + v + ');' };
+      const T = uid('t');
+      return {
+        get, t,
+        set: (v) => '{const ' + T + '=' + B.get + '; if(typeof ' + T + "==='string'){" + B.set('$sset(' + T + ',' + I + ',' + v + ')') + '} else $s(' + T + ',' + I + ',' + v + ');}',
+      };
+    }
+    if (n.k === 'field') {
+      const B = lvalue(n.base, sc);
+      let t = null;
+      if (B.t && B.t.k === 'rec') {
+        const f = B.t.fields.find((x) => x.name === n.name);
+        if (!f) err(n.line, "У записи нет поля '" + n.name + "'");
+        t = f.t;
+      }
+      const g = '(' + B.get + ').f_' + n.name;
+      return { get: g, t, set: (v) => g + ' = ' + v + ';' };
+    }
+    return err(n.line, 'Ожидалась переменная');
+  }
+  function valueFor(e, target) {
+    return needCopy(e.t) && needCopy(target) && e.t !== null ? '$cp(' + e.c + ')' : e.c;
+  }
+
+  // ----- statements -----
+  function writeCode(args, sc, nl, mode) {
+    const parts = args.map((a) => {
+      let s;
+      if (a.k === 'fmt') {
+        const e = ex(a.e, sc);
+        s = '$fmt(' + e.c + ',' + ex(a.w, sc).c + ',' + (a.d ? ex(a.d, sc).c : 'null') + ')';
+      } else {
+        const e = ex(a, sc);
+        s = e.t && isStrT(e.t) ? e.c : '$str(' + e.c + ')';
+      }
+      return s;
+    });
+    let body;
+    if (mode === 'print') body = parts.map((s) => s + "+' '").join('+');
+    else if (mode === 'println') body = parts.join("+' '+");
+    else body = parts.join('+');
+    if (!body) body = "''";
+    return '$w(' + body + (nl ? "+'\\n'" : '') + ');';
+  }
+  function readOne(t) {
+    if (t && t.k === 'int') return '(await $rdI())';
+    if (t && t.k === 'real') return '(await $rdR())';
+    if (t && t.k === 'char') return '(await $rdC())';
+    if (t && t.k === 'str') return '(await $rdS())';
+    return '(await $rdA())';
+  }
+  function builtinStmt(n, sc) {
+    const name = n.name, args = n.args, line = n.line;
+    const N = (a, b) => { if (args.length < a || args.length > (b === undefined ? a : b)) err(line, "Неверное число параметров у '" + name + "'"); };
+    switch (name) {
+      case 'write': return writeCode(args, sc, false, 'write');
+      case 'writeln': return writeCode(args, sc, true, 'write');
+      case 'print': return writeCode(args, sc, false, 'print');
+      case 'println': return writeCode(args, sc, true, 'println');
+      case 'read': case 'readln': {
+        let out = '';
+        for (const a of args) { const lv = lvalue(a, sc); out += lv.set(readOne(lv.t)) + ' '; }
+        if (name === 'readln') out += 'await $rdln();';
+        return out;
+      }
+      case 'inc': case 'dec': {
+        N(1, 2);
+        const lv = lvalue(args[0], sc);
+        const d = args.length > 1 ? ex(args[1], sc).c : '1';
+        const sign = name === 'inc' ? '' : '-';
+        if (lv.t && isNumT(lv.t)) return lv.set(lv.get + (name === 'inc' ? '+' : '-') + '(' + d + ')');
+        return lv.set('$succ(' + lv.get + ',' + sign + '(' + d + '))');
+      }
+      case 'delete': { N(3); const lv = lvalue(args[0], sc); return lv.set('$del(' + lv.get + ',' + ex(args[1], sc).c + ',' + ex(args[2], sc).c + ')'); }
+      case 'insert': { N(3); const lv = lvalue(args[1], sc); return lv.set('$ins(' + ex(args[0], sc).c + ',' + lv.get + ',' + ex(args[2], sc).c + ')'); }
+      case 'setlength': {
+        N(2, 3);
+        const lv = lvalue(args[0], sc);
+        let t = lv.t;
+        const dims = args.slice(1).map((a) => ex(a, sc).c);
+        const elemDef = (tt, k) => (tt && tt.k === 'arr' ? (k > 0 ? '()=>$dyn([])' : '()=>' + defCode(tt.elem)) : "()=>''");
+        if (t && t.k === 'str') return lv.set('$setlenS(' + lv.get + ',' + dims[0] + ')');
+        if (dims.length === 1) return lv.set('$setlen(' + lv.get + ',' + dims[0] + ',' + elemDef(t, 0) + ')');
+        const inner = t && t.k === 'arr' && t.elem && t.elem.k === 'arr' ? defCode(t.elem.elem) : '0';
+        return lv.set('$setlen2(' + lv.get + ',' + dims[0] + ',' + dims[1] + ',()=>' + inner + ')');
+      }
+      case 'randomize': return '';
+      case 'halt': return 'throw $HALT;';
+      case 'sleep': return 'await $sleep(' + ex(args[0], sc).c + ');';
+      case 'swap': {
+        N(2);
+        const a = lvalue(args[0], sc), b = lvalue(args[1], sc), T = uid('w');
+        return '{const ' + T + '=' + a.get + '; ' + a.set(b.get) + ' ' + b.set(T) + '}';
+      }
+      case 'str': {
+        N(2);
+        const lv = lvalue(args[1], sc);
+        const a = args[0];
+        if (a.k === 'fmt') return lv.set('$fmt(' + ex(a.e, sc).c + ',' + ex(a.w, sc).c + ',' + (a.d ? ex(a.d, sc).c : 'null') + ')');
+        return lv.set('$str(' + ex(a, sc).c + ')');
+      }
+      case 'val': {
+        N(3);
+        const x = lvalue(args[1], sc), code = lvalue(args[2], sc), T = uid('v');
+        return '{const ' + T + '=$val(' + ex(args[0], sc).c + '); ' + x.set(T + '[0]') + ' ' + code.set(T + '[1]') + '}';
+      }
+      case 'clrscr': return '$clear();';
+    }
+    return null;
+  }
+  const blockOf = (code) => '{\n' + code + '}\n';
+  function stBody(n, sc) { return blockOf(st(n, sc)); }
+  function st(n, sc) {
+    const L = n.line ? '$L=' + n.line + '; ' : '';
+    switch (n.k) {
+      case 'empty': return '';
+      case 'block': {
+        const s2 = new Scope(sc);
+        return '{\n' + n.stmts.map((s) => st(s, s2)).join('') + '}\n';
+      }
+      case 'vardecl': {
+        let out = '';
+        let t = n.type ? resolveType(n.type, sc) : null;
+        let init = null;
+        if (n.init) { init = ex(n.init, sc); if (!t) t = init.t; }
+        for (const nm of n.names) {
+          const js = 'v_' + nm;
+          const code = init ? valueFor(init, t) : defCode(t);
+          sc.def(nm, { kind: 'var', js, t });
+          out += L + 'let ' + js + ' = ' + code + ';\n';
+        }
+        return out;
+      }
+      case 'assign': {
+        const lv = lvalue(n.target, sc);
+        const e = ex(n.value, sc);
+        let v;
+        if (n.op === ':=') v = valueFor(e, lv.t);
+        else if (n.op === '/=') v = '$dv(' + lv.get + ',' + e.c + ')';
+        else v = '(' + lv.get + n.op[0] + e.c + ')';
+        return L + lv.set(v) + '\n';
+      }
+      case 'call': {
+        const s = sc.look(n.name);
+        if (s && (s.kind === 'func' || s.kind === 'proc')) return L + userCall(s, n.args, sc, n.line).c + ';\n';
+        const b = builtinStmt(n, sc);
+        if (b !== null) return L + b + '\n';
+        if (n.stmt && n.args.length === 0) {
+          const bx = builtinExpr(n.name, [], sc, n.line);
+          if (bx) return L + bx.c + ';\n';
+        }
+        return err(n.line, "Неизвестная процедура '" + n.name + "'");
+      }
+      case 'mcallst': return L + ex(n.e, sc).c + ';\n';
+      case 'if': {
+        let out = L + 'if (' + ex(n.cond, sc).c + ') ' + stBody(n.th, sc);
+        if (n.el) out += 'else ' + stBody(n.el, sc);
+        return out;
+      }
+      case 'while': return L + 'while (' + ex(n.cond, sc).c + ') ' + stBody(n.body, sc);
+      case 'repeat': {
+        const s2 = new Scope(sc);
+        return 'do {\n' + n.body.map((s) => st(s, s2)).join('') + '} while (!(' + ex(n.cond, s2).c + '));\n';
+      }
+      case 'for': {
+        const a = ex(n.from, sc), b = ex(n.to, sc);
+        const cmp = n.down ? '>=' : '<=', step = n.down ? '--' : '++';
+        if (n.decl) {
+          const s2 = new Scope(sc);
+          const js = 'v_' + n.name;
+          s2.def(n.name, { kind: 'var', js, t: a.t || INT });
+          const E = uid('e');
+          return L + 'for (let ' + js + '=' + a.c + ',' + E + '=' + b.c + '; ' + js + cmp + E + '; ' + js + step + ') ' + stBody(n.body, s2);
+        }
+        const lv = lvalue({ k: 'id', name: n.name, line: n.line }, sc);
+        const I = uid('i'), E = uid('e');
+        return L + 'for (let ' + I + '=' + a.c + ',' + E + '=' + b.c + '; ' + I + cmp + E + '; ' + I + step + ') {\n' + lv.set(I) + '\n' + st(n.body, sc) + '}\n';
+      }
+      case 'foreach': {
+        const e = ex(n.expr, sc);
+        const elemT = e.t && e.t.k === 'arr' ? e.t.elem : (isStrT(e.t) ? CHAR : null);
+        if (n.decl) {
+          const s2 = new Scope(sc);
+          s2.def(n.name, { kind: 'var', js: 'v_' + n.name, t: elemT });
+          return L + 'for (let v_' + n.name + ' of $iter(' + e.c + ')) ' + stBody(n.body, s2);
+        }
+        const lv = lvalue({ k: 'id', name: n.name, line: n.line }, sc), X = uid('x');
+        return L + 'for (const ' + X + ' of $iter(' + e.c + ')) {\n' + lv.set(X) + '\n' + st(n.body, sc) + '}\n';
+      }
+      case 'case': {
+        const C = uid('c');
+        let out = L + '{ const ' + C + ' = ' + ex(n.expr, sc).c + ';\n';
+        const conds = n.branches.map((b) => b.labels.map((l) => (l.lo ? '(' + C + '>=' + ex(l.lo, sc).c + '&&' + C + '<=' + ex(l.hi, sc).c + ')' : C + '===' + ex(l, sc).c)).join('||'));
+        n.branches.forEach((b, i) => { out += (i ? 'else ' : '') + 'if (' + conds[i] + ') ' + stBody(b.body, sc); });
+        if (n.els) {
+          const s2 = new Scope(sc);
+          out += (n.branches.length ? 'else ' : '') + '{\n' + n.els.map((s) => st(s, s2)).join('') + '}\n';
+        }
+        return out + '}\n';
+      }
+      case 'break': return 'break;\n';
+      case 'continue': return 'continue;\n';
+      case 'exit': return sc.fn && sc.fn.isFunc ? 'return $r;\n' : 'return;\n';
+    }
+    return err(n.line, 'Неподдерживаемый оператор');
+  }
+
+  // ----- declarations -----
+  function arrLit(n, t, sc) {
+    const items = n.items.map((it) => (it.k === 'arrlit' ? arrLit(it, t && t.k === 'arr' ? t.elem : null, sc) : ex(it, sc).c));
+    return '$lit(' + (t && t.k === 'arr' && !t.dyn ? t.lo : '0') + ',[' + items.join(',') + '])';
+  }
+  function routineCode(d, sc) {
+    const isF = d.kind === 'function';
+    const asy = asyncN.has(d.name);
+    const ret = isF ? resolveType(d.ret, sc) : null;
+    const ptypes = d.params.map((p) => ({ t: resolveType(p.type, sc), byref: p.byref }));
+    const sym = { kind: isF ? 'func' : 'proc', name: d.name, js: 'v_' + d.name, params: ptypes, ret, async: asy };
+    sc.def(d.name, sym);
+    if (d.forward) return '';
+    const rs = new Scope(sc, { isFunc: isF, name: d.name, ret });
+    d.params.forEach((p, i) => rs.def(p.name, { kind: p.byref ? 'ref' : 'var', js: 'v_' + p.name, t: ptypes[i].t }));
+    const inner = declsCode(d.decls, rs) + d.body.stmts.map((s) => st(s, rs)).join('');
+    return (asy ? 'async ' : '') + 'function v_' + d.name + '(' + d.params.map((p) => 'v_' + p.name).join(', ') + ') {\n' +
+      (isF ? 'let $r = ' + defCode(ret) + ';\n' : '') + inner + (isF ? 'return $r;\n' : '') + '}\n';
+  }
+  function declsCode(decls, sc) {
+    let out = '';
+    for (const d of decls) {
+      if (d.k === 'var') {
+        let t = d.type ? resolveType(d.type, sc) : null;
+        let init = null;
+        if (d.init) init = d.init.k === 'arrlit' ? { c: arrLit(d.init, t, sc), t } : ex(d.init, sc);
+        if (!t && init) t = init.t;
+        for (const nm of d.names) {
+          sc.def(nm, { kind: 'var', js: 'v_' + nm, t });
+          out += 'let v_' + nm + ' = ' + (init ? valueFor(init, t) : defCode(t)) + ';\n';
+        }
+      } else if (d.k === 'const') {
+        let t = d.type ? resolveType(d.type, sc) : null;
+        const init = d.value.k === 'arrlit' ? { c: arrLit(d.value, t, sc), t } : ex(d.value, sc);
+        if (!t) t = init.t;
+        sc.def(d.name, { kind: 'const', js: 'v_' + d.name, t });
+        out += 'let v_' + d.name + ' = ' + init.c + ';\n';
+      } else if (d.k === 'type') {
+        sc.def(d.name, { kind: 'type', t: resolveType(d.type, sc) });
+      } else if (d.k === 'routine') {
+        out += routineCode(d, sc);
+      }
+    }
+    return out;
+  }
+
+  const top = new Scope(null, null);
+  const decls = declsCode(prog.decls, top);
+  const mainBody = prog.body.stmts.map((s) => st(s, top)).join('');
+  return 'let $L = 0; $rt.getL = () => $L;\nreturn (async function $main() {\n' + decls + mainBody + '})();\n';
+}
+
+// ===== PascalABC web: runtime =====
+function makeRuntime(io) {
+  const rt = {};
+  const rerr = (m) => { const e = new Error(m); e.pas = true; return e; };
+  rt.$HALT = { halt: true };
+  rt.$w = (s) => io.write(s);
+  const str = (v) => {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'boolean') return v ? 'True' : 'False';
+    if (typeof v === 'number') return Object.is(v, -0) ? '0' : String(v);
+    if (v === null || v === undefined) return 'nil';
+    if (Array.isArray(v)) return '[' + v.map(str).join(',') + ']';
+    if (typeof v === 'object') return '(' + Object.keys(v).map((k) => k.slice(2) + '=' + str(v[k])).join('; ') + ')';
+    return String(v);
+  };
+  rt.$str = str;
+  rt.$fmt = (v, w, d) => {
+    let s;
+    if (d !== null && typeof v === 'number') s = v.toFixed(Math.max(0, Math.trunc(d)));
+    else s = str(v);
+    w = Math.trunc(w);
+    return s.length < w ? ' '.repeat(w - s.length) + s : s;
+  };
+  rt.$g = (a, i) => {
+    if (typeof a === 'string') {
+      if (!(i >= 1 && i <= a.length)) throw rerr('Индекс ' + i + ' за пределами строки (длина ' + a.length + ')');
+      return a[i - 1];
+    }
+    const k = i - a.lo;
+    if (!(k >= 0 && k < a.length)) throw rerr('Индекс ' + i + ' за пределами массива [' + a.lo + '..' + (a.lo + a.length - 1) + ']');
+    return a[k];
+  };
+  rt.$s = (a, i, v) => {
+    const k = i - a.lo;
+    if (!(k >= 0 && k < a.length)) throw rerr('Индекс ' + i + ' за пределами массива [' + a.lo + '..' + (a.lo + a.length - 1) + ']');
+    a[k] = v;
+  };
+  rt.$sset = (s, i, v) => {
+    if (!(i >= 1 && i <= s.length)) throw rerr('Индекс ' + i + ' за пределами строки (длина ' + s.length + ')');
+    return s.slice(0, i - 1) + v + s.slice(i);
+  };
+  rt.$mk = (lo, hi, fn) => {
+    const n = Math.max(0, hi - lo + 1);
+    const a = new Array(n);
+    for (let i = 0; i < n; i++) a[i] = fn();
+    a.lo = lo;
+    return a;
+  };
+  rt.$dyn = (a) => { a.lo = 0; a.dyn = true; return a; };
+  rt.$lit = (lo, items) => { items.lo = lo; return items; };
+  const cp = (v) => {
+    if (v === null || typeof v !== 'object') return v;
+    if (Array.isArray(v)) {
+      if (v.dyn) return v;
+      const r = v.map(cp); r.lo = v.lo; return r;
+    }
+    const o = {};
+    for (const k in v) o[k] = cp(v[k]);
+    return o;
+  };
+  rt.$cp = cp;
+  rt.$cat = (a, b) => rt.$dyn(a.concat(b));
+  rt.$ref = (g, s) => ({ get v() { return g(); }, set v(x) { s(x); } });
+  rt.$len = (x) => (x === null || x === undefined ? 0 : x.length);
+  rt.$high = (x) => (typeof x === 'string' ? x.length : x.lo + x.length - 1);
+  rt.$low = (x) => (typeof x === 'string' ? 1 : x.lo);
+  rt.$setlen = (a, n, fn) => {
+    if (!a || !Array.isArray(a)) a = rt.$dyn([]);
+    const old = a.length;
+    a.length = Math.max(0, n);
+    for (let i = old; i < n; i++) a[i] = fn();
+    return a;
+  };
+  rt.$setlenS = (s, n) => (n <= s.length ? s.slice(0, Math.max(0, n)) : s + ' '.repeat(n - s.length));
+  rt.$setlen2 = (a, n, m, fn) => {
+    const r = [];
+    for (let i = 0; i < n; i++) r.push(rt.$dyn(Array.from({ length: Math.max(0, m) }, fn)));
+    return rt.$dyn(r);
+  };
+  rt.$iter = (x) => {
+    if (typeof x === 'string') return [...x];
+    if (Array.isArray(x)) return x;
+    throw rerr('Нельзя перебрать это значение в foreach');
+  };
+  rt.$in = (x, set) => {
+    for (const e of set) {
+      if (e !== null && typeof e === 'object' && !Array.isArray(e)) { if (x >= e.lo && x <= e.hi) return true; }
+      else if (e === x) return true;
+    }
+    return false;
+  };
+  rt.$not = (v) => (typeof v === 'boolean' ? !v : ~v);
+  rt.$dv = (a, b) => { if (b === 0) throw rerr('Деление на ноль'); return a / b; };
+  rt.$idiv = (a, b) => { if (b === 0) throw rerr('Деление на ноль'); return Math.trunc(a / b); };
+  rt.$mod = (a, b) => { if (b === 0) throw rerr('Деление на ноль'); return a % b; };
+  rt.$sqr = (x) => x * x;
+  rt.$round = (v) => (v < 0 ? -Math.floor(-v + 0.5) : Math.floor(v + 0.5));
+  rt.$frac = (v) => v - Math.trunc(v);
+  rt.$odd = (n) => Math.abs(n) % 2 === 1;
+  rt.$rnd = (n) => Math.floor(Math.random() * n);
+  rt.$rnd2 = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  rt.$sub = (s, i, n) => {
+    if (n <= 0) return '';
+    if (i < 1) { n += i - 1; i = 1; }
+    return s.substr(i - 1, n);
+  };
+  rt.$up = (c) => c.toUpperCase();
+  rt.$ord = (x) => (typeof x === 'string' ? (x.length ? x.charCodeAt(0) : 0) : typeof x === 'boolean' ? +x : x);
+  rt.$succ = (x, d) => (typeof x === 'string' ? String.fromCharCode(x.charCodeAt(0) + d) : typeof x === 'boolean' ? (d > 0) : x + d);
+  rt.$toint = (x) => (typeof x === 'string' ? x.charCodeAt(0) : typeof x === 'boolean' ? +x : Math.trunc(x));
+  rt.$s2i = (s) => {
+    const t = String(s).trim();
+    if (!/^[+-]?\d+$/.test(t)) throw rerr("Строка '" + s + "' не преобразуется в целое число");
+    return parseInt(t, 10);
+  };
+  rt.$s2f = (s) => {
+    const v = Number(String(s).trim().replace(',', '.'));
+    if (String(s).trim() === '' || isNaN(v)) throw rerr("Строка '" + s + "' не преобразуется в вещественное число");
+    return v;
+  };
+  rt.$val = (s) => {
+    const t = String(s).trim();
+    const v = Number(t);
+    return t === '' || isNaN(v) ? [0, 1] : [v, 0];
+  };
+  rt.$del = (s, i, n) => (i < 1 || n <= 0 ? s : s.slice(0, i - 1) + s.slice(i - 1 + n));
+  rt.$ins = (sub, s, i) => { i = Math.max(1, Math.min(i, s.length + 1)); return s.slice(0, i - 1) + sub + s.slice(i - 1); };
+  rt.$sleep = (ms) => { io.flush(); return new Promise((r) => setTimeout(r, Math.min(ms, 5000))); };
+  rt.$clear = () => { if (io.clear) io.clear(); };
+
+  // ----- input -----
+  let line = null;
+  const need = async () => { if (line === null) { io.flush(); line = await io.input(); } };
+  const tok = async () => {
+    for (;;) {
+      await need();
+      line = line.replace(/^\s+/, '');
+      if (line === '') { line = null; continue; }
+      const m = line.match(/^\S+/)[0];
+      line = line.slice(m.length);
+      return m;
+    }
+  };
+  rt.$rdln = async () => { if (line === null) await need(); line = null; };
+  rt.$rdI = async () => {
+    const t = await tok();
+    if (!/^[+-]?\d+$/.test(t)) throw rerr("Ошибка ввода: '" + t + "' не целое число");
+    return parseInt(t, 10);
+  };
+  rt.$rdR = async () => {
+    const t = await tok();
+    const v = Number(t.replace(',', '.'));
+    if (isNaN(v)) throw rerr("Ошибка ввода: '" + t + "' не число");
+    return v;
+  };
+  rt.$rdS = async () => { await need(); const s = line; line = ''; return s; };
+  rt.$rdC = async () => {
+    await need();
+    if (line === '') { line = null; return '\n'; }
+    const c = line[0]; line = line.slice(1); return c;
+  };
+  rt.$rdA = async () => { const t = await tok(); const v = Number(t); return isNaN(v) ? t : v; };
+  rt.$rdIP = async (p, ln) => { rt.$w(p); const v = await rt.$rdI(); if (ln) await rt.$rdln(); return v; };
+  rt.$rdRP = async (p, ln) => { rt.$w(p); const v = await rt.$rdR(); if (ln) await rt.$rdln(); return v; };
+  rt.$rdSP = async (p) => { rt.$w(p); const v = await rt.$rdS(); line = null; return v; };
+  rt.$rdCP = async (p) => { rt.$w(p); return await rt.$rdC(); };
+  rt.$rdBP = async (p) => { rt.$w(p); const t = await tok(); return t.toLowerCase() === 'true'; };
+  return rt;
+}
+
+async function execute(src, io) {
+  let code;
+  try { code = compile(src); }
+  catch (e) {
+    if (e && e.msg !== undefined) { io.error('Ошибка компиляции' + (e.line ? ' (строка ' + e.line + ')' : '') + ': ' + e.msg); return 1; }
+    io.error('Внутренняя ошибка: ' + (e && e.message)); return 1;
+  }
+  const rt = makeRuntime(io);
+  const keys = Object.keys(rt).filter((k) => k.startsWith('$'));
+  let fn;
+  try { fn = new Function('$rt', 'const {' + keys.join(',') + '} = $rt;\n' + code); }
+  catch (e) { io.error('Внутренняя ошибка компилятора: ' + e.message); return 1; }
+  try { await fn(rt); io.flush(); return 0; }
+  catch (e) {
+    io.flush();
+    if (e === rt.$HALT) return 0;
+    const ln = rt.getL ? rt.getL() : 0;
+    const msg = e && e.pas ? e.message : (e instanceof RangeError ? 'Переполнение стека (слишком глубокая рекурсия)' : (e && e.message) || String(e));
+    io.error('Ошибка выполнения' + (ln ? ' (строка ' + ln + ')' : '') + ': ' + msg);
+    return 1;
+  }
+}
+if (typeof module !== 'undefined') module.exports = { compile, execute, parse };
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var code = $('code'), hl = $('hl'), nums = $('nums'), out = $('out');
+  var runBtn = $('run'), inl = $('inline'), sendBtn = $('send'), statusEl = $('status');
+
+  /* ---------- examples ---------- */
+  var EXAMPLES = [
+    { n: 'Привет, мир', c: "begin\n  writeln('Привет, мир!');\nend.\n" },
+    { n: 'Сумма двух чисел', c: "var a, b: integer;\nbegin\n  write('Введите два числа: ');\n  readln(a, b);\n  writeln('Сумма = ', a + b);\n  writeln('Среднее = ', (a + b) / 2:0:2);\nend.\n" },
+    { n: 'Таблица умножения', c: "var i, j: integer;\nbegin\n  for i := 1 to 9 do\n  begin\n    for j := 1 to 9 do\n      write(i * j:4);\n    writeln;\n  end;\nend.\n" },
+    { n: 'Факториал (рекурсия)', c: "function fact(n: integer): int64;\nbegin\n  if n <= 1 then\n    fact := 1\n  else\n    fact := n * fact(n - 1);\nend;\n\nvar n: integer;\nbegin\n  write('n = ');\n  readln(n);\n  writeln(n, '! = ', fact(n));\nend.\n" },
+    { n: 'Простые числа (решето)', c: "const N = 100;\nvar\n  p: array[2..N] of boolean;\n  i, j: integer;\nbegin\n  for i := 2 to N do p[i] := true;\n  for i := 2 to N do\n    if p[i] then\n      for j := i * i to N do\n        if j mod i = 0 then p[j] := false;\n  for i := 2 to N do\n    if p[i] then write(i, ' ');\n  writeln;\nend.\n" },
+    { n: 'Сортировка пузырьком', c: "const N = 10;\nvar\n  a: array[1..N] of integer;\n  i, j, t: integer;\nbegin\n  for i := 1 to N do\n    a[i] := random(100);\n  writeln('До:    ');\n  for i := 1 to N do write(a[i]:4);\n  writeln;\n  for i := 1 to N - 1 do\n    for j := 1 to N - i do\n      if a[j] > a[j + 1] then\n      begin\n        t := a[j];\n        a[j] := a[j + 1];\n        a[j + 1] := t;\n      end;\n  writeln('После: ');\n  for i := 1 to N do write(a[i]:4);\n  writeln;\nend.\n" },
+    { n: 'Палиндром (строки)', c: "function isPal(s: string): boolean;\nvar i: integer;\nbegin\n  isPal := true;\n  for i := 1 to length(s) div 2 do\n    if s[i] <> s[length(s) - i + 1] then\n      isPal := false;\nend;\n\nvar s: string;\nbegin\n  write('Слово: ');\n  readln(s);\n  if isPal(s) then\n    writeln('Палиндром')\n  else\n    writeln('Не палиндром');\nend.\n" },
+    { n: 'Угадай число', c: "var secret, guess, tries: integer;\nbegin\n  secret := random(100) + 1;\n  tries := 0;\n  writeln('Я загадал число от 1 до 100');\n  repeat\n    write('Ваш вариант: ');\n    readln(guess);\n    inc(tries);\n    if guess < secret then writeln('Больше')\n    else if guess > secret then writeln('Меньше');\n  until guess = secret;\n  writeln('Верно! Попыток: ', tries);\nend.\n" },
+    { n: 'Записи (record)', c: "type\n  TStudent = record\n    name: string;\n    age: integer;\n    mark: real;\n  end;\n\nvar\n  s: array[1..3] of TStudent;\n  i: integer;\n  sum: real;\nbegin\n  s[1].name := 'Аня';  s[1].age := 17; s[1].mark := 4.5;\n  s[2].name := 'Борис'; s[2].age := 18; s[2].mark := 3.8;\n  s[3].name := 'Вика';  s[3].age := 17; s[3].mark := 5;\n  sum := 0;\n  for i := 1 to 3 do\n  begin\n    writeln(s[i].name:8, s[i].age:4, s[i].mark:6:1);\n    sum := sum + s[i].mark;\n  end;\n  writeln('Средний балл: ', sum / 3:0:2);\nend.\n" },
+    { n: 'Стиль PascalABC.NET', c: "begin\n  var n := 10;\n  var a: array of integer;\n  SetLength(a, n);\n  for var i := 0 to n - 1 do\n    a[i] := i * i;\n  var s := 0;\n  foreach var x in a do\n    s += x;\n  Println('Сумма квадратов:', s);\nend.\n" }
+  ];
+  var sel = $('examples');
+  var opt0 = document.createElement('option'); opt0.textContent = 'Примеры…'; opt0.value = ''; sel.appendChild(opt0);
+  EXAMPLES.forEach(function (e, i) { var o = document.createElement('option'); o.value = String(i); o.textContent = e.n; sel.appendChild(o); });
+
+  /* ---------- highlight ---------- */
+  var KW = 'program|uses|var|const|type|begin|end|if|then|else|while|do|repeat|until|for|to|downto|case|of|function|procedure|array|record|and|or|not|xor|div|mod|shl|shr|in|foreach|forward|break|continue|exit|nil|true|false|new';
+  var TY = 'integer|real|boolean|char|string|byte|word|longint|int64|double|single|extended|cardinal|shortint|smallint';
+  var RE = new RegExp("(\\{[^}]*\\}?|\\(\\*[\\s\\S]*?(?:\\*\\)|$)|//[^\\n]*)|('(?:[^'\\n]|'')*'?)|(\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b|\\$[0-9A-Fa-f]+)|(\\b(?:" + KW + ")\\b)|(\\b(?:" + TY + ")\\b)", 'gi');
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function highlight(src) {
+    var res = '', last = 0, m;
+    RE.lastIndex = 0;
+    while ((m = RE.exec(src)) !== null) {
+      if (m[0] === '') { RE.lastIndex++; continue; }
+      res += esc(src.slice(last, m.index));
+      var cls = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'n' : m[4] ? 'k' : 't';
+      res += '<span class="' + cls + '">' + esc(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return res + esc(src.slice(last)) + '\n';
+  }
+  var errLine = 0;
+  function refresh() {
+    var v = code.value;
+    hl.innerHTML = highlight(v);
+    var n = v.split('\n').length, s = '';
+    for (var i = 1; i <= n; i++) s += (i === errLine ? '<span class="err">' + i + '</span>' : i) + '\n';
+    nums.innerHTML = s;
+    syncScroll();
+    try { localStorage.setItem('pabc-code', v); } catch (e) {}
+  }
+  function syncScroll() {
+    hl.style.transform = 'translate(' + (-code.scrollLeft) + 'px,' + (-code.scrollTop) + 'px)';
+    nums.parentNode.style.transform = 'translateY(' + (-code.scrollTop) + 'px)';
+  }
+  code.addEventListener('scroll', syncScroll);
+  code.addEventListener('input', function () { errLine = 0; refresh(); });
+
+  /* ---------- editing helpers ---------- */
+  function insert(text, back) {
+    code.focus();
+    var ok = false;
+    try { ok = document.execCommand('insertText', false, text); } catch (e) {}
+    if (!ok) {
+      var s = code.selectionStart, e2 = code.selectionEnd;
+      code.setRangeText(text, s, e2, 'end');
+      code.dispatchEvent(new Event('input'));
+    }
+    if (back) { var p = code.selectionStart - back; code.setSelectionRange(p, p); }
+  }
+  code.addEventListener('keydown', function (e) {
+    if (e.key === 'Tab') { e.preventDefault(); insert('  '); }
+    else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); toggleRun(); }
+  });
+  code.addEventListener('beforeinput', function (e) {
+    if (e.inputType !== 'insertLineBreak' && e.inputType !== 'insertParagraph') return;
+    e.preventDefault();
+    var v = code.value, pos = code.selectionStart;
+    var ls = v.lastIndexOf('\n', pos - 1) + 1;
+    var line = v.slice(ls, pos);
+    var ind = /^[ \t]*/.exec(line)[0];
+    if (/(\bbegin|\bthen|\bdo|\bof|\belse|\brepeat|\bvar|\bconst|\btype|\brecord)\s*$/i.test(line)) ind += '  ';
+    insert('\n' + ind);
+  });
+  var KEYS = [['⇥', '  ', 0], [':=', ' := ', 0], [';', ';', 0], ["'", "''", 1], ['( )', '()', 1], ['[ ]', '[]', 1], ['<>', ' <> ', 0], ['begin', 'begin\n', 0], ['end', 'end', 0], ['end;', 'end;', 0], ['writeln', 'writeln();', 2], ['readln', 'readln();', 2]];
+  var kb = $('keybar');
+  KEYS.forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = k[0];
+    b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+    b.addEventListener('click', function () { insert(k[1], k[2]); });
+    kb.appendChild(b);
+  });
+  $('clear-code').addEventListener('click', function () { code.value = ''; errLine = 0; refresh(); code.focus(); });
+  sel.addEventListener('change', function () {
+    if (sel.value === '') return;
+    code.value = EXAMPLES[+sel.value].c; errLine = 0; refresh(); sel.value = '';
+    setTab('code'); code.scrollTop = 0; code.scrollLeft = 0; syncScroll();
+  });
+
+  /* ---------- tabs ---------- */
+  function setTab(t) {
+    document.body.setAttribute('data-tab', t);
+    $('tab-code').setAttribute('aria-selected', t === 'code');
+    $('tab-console').setAttribute('aria-selected', t === 'console');
+  }
+  $('tab-code').addEventListener('click', function () { setTab('code'); });
+  $('tab-console').addEventListener('click', function () { setTab('console'); });
+  setTab('code');
+
+  /* ---------- console ---------- */
+  var pending = '', raf = 0, total = 0, MAXC = 400000;
+  function flushOut() {
+    raf = 0;
+    if (!pending) return;
+    out.appendChild(document.createTextNode(pending));
+    pending = '';
+    total = out.textContent.length;
+    if (total > MAXC) {
+      var t = out.textContent.slice(-MAXC / 2);
+      out.textContent = t;
+    }
+    out.scrollTop = out.scrollHeight;
+  }
+  function addText(s) { pending += s; if (!raf) raf = requestAnimationFrame(flushOut); }
+  function addSpan(cls, s) {
+    flushOut();
+    var sp = document.createElement('span'); sp.className = cls; sp.textContent = s;
+    out.appendChild(sp); out.scrollTop = out.scrollHeight;
+  }
+  function lineStart() { flushOut(); var t = out.textContent; return t === '' || t.slice(-1) === '\n'; }
+  $('clear-out').addEventListener('click', function () { out.textContent = ''; pending = ''; });
+
+  /* ---------- running ---------- */
+  var worker = null, running = false, t0 = 0, localMode = null, awaiting = null;
+  var GLUE = "\nvar __pending=null,__buf='',__tot=0,__last=Date.now();\n" +
+    "function __post(m){self.postMessage(m);}\n" +
+    "function __flush(){if(__buf){__post({t:'out',s:__buf});__buf='';}__last=Date.now();}\n" +
+    "var __io={write:function(s){__buf+=s;__tot+=s.length;if(__tot>6000000){__tot=0;throw Object.assign(new Error('Слишком большой вывод, программа остановлена'),{pas:true});}if(__buf.length>4096||Date.now()-__last>60)__flush();},flush:__flush,clear:function(){__flush();__post({t:'clear'});},error:function(m){__flush();__post({t:'err',m:m});},input:function(){__flush();__post({t:'input'});return new Promise(function(r){__pending=r;});}};\n" +
+    "self.onmessage=function(e){var m=e.data;if(m.t==='run'){execute(m.src,__io).then(function(){__flush();__post({t:'done'});});}else if(m.t==='line'){var r=__pending;__pending=null;if(r)r(m.s);}};\n";
+
+  function setRunning(on) {
+    running = on;
+    runBtn.classList.toggle('is-stop', on);
+    runBtn.innerHTML = on ? '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/></svg><span>Стоп</span>'
+                          : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5v13l11-6.5z"/></svg><span>Запуск</span>';
+    statusEl.textContent = on ? 'Выполняется…' : 'Консоль';
+    if (!on) setWaiting(false);
+  }
+  function setWaiting(w) {
+    document.getElementById('pane-console').classList.toggle('waiting', w);
+    inl.disabled = !w; sendBtn.disabled = !w;
+    inl.placeholder = w ? 'Введите значение и нажмите Ввод' : 'Ввод появится, когда программа его попросит';
+    if (w) { statusEl.textContent = 'Ждёт ввода'; try { inl.focus(); } catch (e) {} }
+    else if (running) statusEl.textContent = 'Выполняется…';
+  }
+  function onMsg(m) {
+    if (m.t === 'out') addText(m.s);
+    else if (m.t === 'clear') { out.textContent = ''; pending = ''; }
+    else if (m.t === 'input') setWaiting(true);
+    else if (m.t === 'err') {
+      if (!lineStart()) addText('\n');
+      addSpan('err', m.m + '\n');
+      var mm = /строка (\d+)/.exec(m.m);
+      if (mm) { errLine = +mm[1]; refresh(); }
+    }
+    else if (m.t === 'done') {
+      var dt = ((performance.now() - t0) / 1000).toFixed(2);
+      if (!lineStart()) addText('\n');
+      addSpan('dim', 'Программа завершена (' + dt + ' с)\n');
+      endRun();
+    }
+  }
+  function endRun() {
+    if (worker) { worker.terminate(); worker = null; }
+    localMode = null; awaiting = null;
+    setRunning(false);
+  }
+  function startRun() {
+    out.textContent = ''; pending = ''; errLine = 0; refresh();
+    var engine = $('engine-src').textContent;
+    setTab('console'); setRunning(true); t0 = performance.now();
+    var started = false;
+    try {
+      var blob = new Blob([engine + GLUE], { type: 'text/javascript' });
+      var url = URL.createObjectURL(blob);
+      worker = new Worker(url);
+      worker.onmessage = function (e) { onMsg(e.data); };
+      worker.onerror = function (e) { addSpan('err', 'Ошибка движка: ' + (e.message || 'неизвестная') + '\n'); endRun(); };
+      worker.postMessage({ t: 'run', src: code.value });
+      started = true;
+    } catch (e) { worker = null; }
+    if (!started) {
+      /* fallback: run on the page itself (Stop cannot interrupt a busy loop here) */
+      try {
+        var E = new Function(engine + '\nreturn {execute: execute};')();
+        var buf = '', last = Date.now();
+        var io = {
+          write: function (s) { buf += s; if (buf.length > 4096 || Date.now() - last > 60) io.flush(); },
+          flush: function () { if (buf) { onMsg({ t: 'out', s: buf }); buf = ''; } last = Date.now(); },
+          clear: function () { onMsg({ t: 'clear' }); },
+          error: function (m) { io.flush(); onMsg({ t: 'err', m: m }); },
+          input: function () { io.flush(); onMsg({ t: 'input' }); return new Promise(function (r) { awaiting = r; }); }
+        };
+        localMode = true;
+        E.execute(code.value, io).then(function () { io.flush(); if (localMode) onMsg({ t: 'done' }); });
+      } catch (e2) { addSpan('err', 'Не удалось запустить: ' + e2.message + '\n'); endRun(); }
+    }
+  }
+  function stopRun() {
+    if (!lineStart()) addText('\n');
+    addSpan('dim', 'Программа остановлена\n');
+    endRun();
+  }
+  function toggleRun() { if (running) stopRun(); else startRun(); }
+  runBtn.addEventListener('click', toggleRun);
+
+  $('inform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (inl.disabled) return;
+    var v = inl.value; inl.value = '';
+    addSpan('echo', v + '\n');
+    setWaiting(false);
+    if (worker) worker.postMessage({ t: 'line', s: v });
+    else if (awaiting) { var r = awaiting; awaiting = null; r(v); }
+  });
+
+  /* ---------- help ---------- */
+  var dlg = $('helpdlg');
+  $('help').addEventListener('click', function () { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); });
+  $('helpclose').addEventListener('click', function () { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); });
+
+  /* ---------- init ---------- */
+  var saved = null;
+  try { saved = localStorage.getItem('pabc-code'); } catch (e) {}
+  code.value = saved && saved.trim() ? saved : EXAMPLES[1].c;
+  refresh();
+  addSpan('dim', 'Нажмите «Запуск», чтобы выполнить программу.\n');
+})();
+</script>
